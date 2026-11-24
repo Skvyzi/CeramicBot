@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 from datetime import datetime, timedelta
 import telebot
@@ -299,7 +300,11 @@ TEXTS = {
 
 # === РАБОТА С ЖИВОЙ GOOGLE ТАБЛИЦЕЙ ===
 def get_sheet():
-    gc = gspread.service_account(filename=CREDENTIALS_FILE)
+    creds_json = os.getenv("GOOGLE_CREDENTIALS")
+    if creds_json:
+        gc = gspread.service_account_from_dict(json.loads(creds_json))
+    else:
+        gc = gspread.service_account(filename=CREDENTIALS_FILE)
     sh = gc.open_by_url(GOOGLE_SHEET_URL)
     return sh.sheet1
 
