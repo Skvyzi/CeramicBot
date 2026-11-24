@@ -3,19 +3,22 @@ import sqlite3
 from datetime import datetime, timedelta
 import telebot
 from telebot import types
-from openpyxl import Workbook
+import gspread
 
 # === НАСТРОЙКИ ===
 TOKEN = os.getenv("BOT_TOKEN")
 
-ADMIN_ID = 1213775571  # ID мамы для уведомлений и команды /excel
+ADMIN_ID = 1213775571  # ID мамы для уведомлений
 ADMIN_SECRET = "secret_admin_777"  # Пароль для ссылки-приглашения в админы
 SUPPORT_GROUP_URL = "https://t.me/+wJqlXr8Q4TdmNzA0"
 LOCATION_URL = "https://maps.app.goo.gl/3marsJJvmUzWL3qy8"
 INSTAGRAM_URL = "https://www.instagram.com/artelceramics/"
 LOCATION_PHOTO = "location.jpg"  # Имя файла с фото в папке с ботом
-EXCEL_FILE = "bookings.xlsx"
 MAX_PEOPLE = 8
+
+# Настройки Google Таблицы
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/100Ss455op1E0W00_mAFLn3VItBoIJ7GEcyGJEdHuKk8/edit?usp=sharing"
+CREDENTIALS_FILE = "credentials.json"
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -43,10 +46,10 @@ SLOT_END_TIME = {
     "thu_18": (3, 19, 0),
 }
 
-# === ТЕКСТЫ НА ДВУХ ЯЗЫКАХ ===
+# === ТЕКСТЫ НА ДВУХ ЯЗЫКАХ (ВЕЖЛИВОЕ ОБРАЩЕНИЕ) ===
 TEXTS = {
     "ru": {
-        "welcome": "Привет! Это бот мастерской керамики 🏺\nВыбери нужный раздел:",
+        "welcome": "Здравствуйте! Это бот мастерской керамики 🏺\nВыберите, пожалуйста, нужный раздел:",
         "btn_schedule": "📅 Расписание и запись",
         "btn_my": "📋 Мои записи",
         "btn_prices": "💰 Цены",
@@ -59,7 +62,7 @@ TEXTS = {
         "btn_support": "💬 Технические вопросы",
         "btn_lang": "🌐 Switch to English",
 
-        "choose_type": "Как ты хочешь записаться на <b>{title}</b>?",
+        "choose_type": "Как Вы хотите записаться на <b>{title}</b>?",
         "btn_regular": "🔄 На постоянную (каждую неделю)",
         "btn_onetime": "1️⃣ Одноразово",
         "type_regular": "Постоянная",
@@ -67,7 +70,7 @@ TEXTS = {
 
         "location_text": "Наша уютная мастерская расположена в центре города Бар.",
         "location_btn": "Открыть на карте 🗺",
-        "works_text": "Мои работы можно посмотреть в Инстаграме:",
+        "works_text": "Наши работы можно посмотреть в Инстаграме:",
         "works_btn": "Открыть Instagram 📸",
         "announcements_text": (
             "📢 <b>Анонсы мастер-классов</b>\n\n"
@@ -152,22 +155,22 @@ TEXTS = {
         "schedule_header": (
             "<b>Расписание групп (до 8 человек):</b>\n\n"
             "Взрослые могут ходить в детские группы, а вот наоборот нельзя — дети во взрослую группу не ходят 😊\n\n"
-            "Нажми на нужное время, чтобы записаться:"
+            "Нажмите на нужное время, чтобы записаться:"
         ),
         "free": "мест: {free}/{max}",
         "full": "мест нет ❌",
-        "support_text": "Если есть технические вопросы по занятиям — переходи в нашу группу:",
+        "support_text": "Если у Вас есть технические вопросы по занятиям — переходите в нашу группу:",
         "support_btn": "Перейти в группу 💬",
-        "no_bookings": "Ты пока никуда не записан.",
-        "my_bookings": "Твои текущие записи (нажми, чтобы отменить):",
+        "no_bookings": "Вы пока никуда не записаны.",
+        "my_bookings": "Ваши текущие записи (нажмите, чтобы отменить):",
         "cancel_btn": "❌ Отменить: {title}",
-        "booked_ok": "✅ Ты записан на занятие:\n<b>{title}</b>\nФормат: <b>{btype}</b>",
-        "already_booked": "Ты уже записан в эту группу!",
-        "slot_full": "Извини, в этой группе уже нет мест 😔",
-        "canceled": "Запись отменена ✅",
+        "booked_ok": "✅ Вы успешно записаны на занятие:\n<b>{title}</b>\nФормат: <b>{btype}</b>",
+        "already_booked": "Вы уже записаны в эту группу!",
+        "slot_full": "Извините, в этой группе уже нет свободных мест 😔",
+        "canceled": "Ваша запись отменена ✅",
     },
     "en": {
-        "welcome": "Hi! Welcome to our Ceramics Studio bot 🏺\nChoose an option below:",
+        "welcome": "Hello! Welcome to our Ceramics Studio bot 🏺\nPlease choose an option below:",
         "btn_schedule": "📅 Schedule & Booking",
         "btn_my": "📋 My Bookings",
         "btn_prices": "💰 Prices",
@@ -188,7 +191,7 @@ TEXTS = {
 
         "location_text": "Our cozy studio is located in the heart of Bar.",
         "location_btn": "Open in Google Maps 🗺",
-        "works_text": "You can view my works on Instagram:",
+        "works_text": "You can view our works on Instagram:",
         "works_btn": "Open Instagram 📸",
         "announcements_text": (
             "📢 <b>Workshop Announcements</b>\n\n"
@@ -289,14 +292,54 @@ TEXTS = {
         "booked_ok": "✅ You are booked for:\n<b>{title}</b>\nType: <b>{btype}</b>",
         "already_booked": "You are already booked for this class!",
         "slot_full": "Sorry, this group is already full 😔",
-        "canceled": "Booking canceled ✅",
+        "canceled": "Your booking has been canceled ✅",
     }
 }
 
 
+# === РАБОТА С ЖИВОЙ GOOGLE ТАБЛИЦЕЙ ===
+def get_sheet():
+    gc = gspread.service_account(filename=CREDENTIALS_FILE)
+    sh = gc.open_by_url(GOOGLE_SHEET_URL)
+    return sh.sheet1
+
+
+def init_sheet():
+    try:
+        ws = get_sheet()
+        if not ws.row_values(1):
+            ws.append_row(["Дата записи", "Группа", "Тип записи", "Клиент", "Telegram ID", "Статус"])
+    except Exception as e:
+        print(f"Ошибка подключения к Google Таблице: {e}")
+
+
+def add_row_to_sheet(slot_id, booking_type, client_info, user_id):
+    try:
+        ws = get_sheet()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        group_name = SCHEDULE.get(slot_id, {}).get("ru", slot_id)
+        ws.append_row([now_str, group_name, booking_type, client_info, str(user_id), "Активна"])
+    except Exception as e:
+        print(f"Ошибка добавления в Google Таблицу: {e}")
+
+
+def mark_canceled_in_sheet(slot_id, user_id):
+    try:
+        ws = get_sheet()
+        group_name = SCHEDULE.get(slot_id, {}).get("ru", slot_id)
+        rows = ws.get_all_values()
+        # Ищем с конца самую свежую активную запись этого клиента в эту группу
+        for idx in range(len(rows) - 1, 0, -1):
+            row = rows[idx]
+            if len(row) >= 6 and row[1] == group_name and row[4] == str(user_id) and row[5] == "Активна":
+                ws.update_cell(idx + 1, 6, "Отменена")
+                break
+    except Exception as e:
+        print(f"Ошибка обновления статуса в Google Таблице: {e}")
+
+
 # === РАСЧЁТ ДАТЫ ДЛЯ ОДНОРАЗОВОЙ ЗАПИСИ ===
 def get_next_slot_end(slot_id):
-    """Считает, когда закончится ближайшее занятие для одноразовой записи"""
     now = datetime.now()
     target_wd, end_h, end_m = SLOT_END_TIME[slot_id]
     days_ahead = (target_wd - now.weekday()) % 7
@@ -306,7 +349,7 @@ def get_next_slot_end(slot_id):
     return int(end_dt.timestamp()), end_dt.strftime("%d.%m")
 
 
-# === БАЗА ДАННЫХ И EXCEL ===
+# === БАЗА ДАННЫХ ===
 def init_db():
     conn = sqlite3.connect("ceramics.db")
     cur = conn.cursor()
@@ -344,11 +387,10 @@ def init_db():
     cur.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (ADMIN_ID,))
     conn.commit()
     conn.close()
-    export_to_excel()
+    init_sheet()
 
 
 def cleanup_expired_bookings():
-    """Автоматически удаляет одноразовые записи, урок по которым уже прошёл"""
     now_ts = int(datetime.now().timestamp())
     conn = sqlite3.connect("ceramics.db")
     cur = conn.cursor()
@@ -381,31 +423,6 @@ def get_all_admins():
     rows = [row[0] for row in cur.fetchall()]
     conn.close()
     return rows
-
-
-def export_to_excel():
-    cleanup_expired_bookings()
-    conn = sqlite3.connect("ceramics.db")
-    cur = conn.cursor()
-    cur.execute("SELECT slot_id, booking_type, user_name, user_id FROM bookings ORDER BY slot_id")
-    rows = cur.fetchall()
-    conn.close()
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Записи"
-    ws.append(["Группа", "Тип записи", "Клиент", "Telegram ID"])
-
-    for slot_id, booking_type, user_name, user_id in rows:
-        group_name = SCHEDULE.get(slot_id, {}).get("ru", slot_id)
-        ws.append([group_name, booking_type or "Постоянная", user_name, user_id])
-
-    ws.column_dimensions["A"].width = 28
-    ws.column_dimensions["B"].width = 22
-    ws.column_dimensions["C"].width = 30
-    ws.column_dimensions["D"].width = 15
-
-    wb.save(EXCEL_FILE)
 
 
 def get_lang(user_id):
@@ -445,7 +462,7 @@ def add_booking(user_id, user_name, slot_id, booking_type, expires_at=None):
             (user_id, user_name, slot_id, booking_type, expires_at)
         )
         conn.commit()
-        export_to_excel()
+        add_row_to_sheet(slot_id, booking_type, user_name, user_id)
         return True
     except sqlite3.IntegrityError:
         return False
@@ -459,7 +476,7 @@ def remove_booking(user_id, slot_id):
     cur.execute("DELETE FROM bookings WHERE user_id = ? AND slot_id = ?", (user_id, slot_id))
     conn.commit()
     conn.close()
-    export_to_excel()
+    mark_canceled_in_sheet(slot_id, user_id)
 
 
 def get_user_bookings(user_id):
@@ -507,7 +524,7 @@ def start(message):
         add_admin(message.from_user.id)
         bot.send_message(
             message.chat.id,
-            "✅ Ты добавлен(а) в список админов!\nТеперь тебе будут приходить уведомления и таблица Excel. Команды: /excel и /clear_onetime."
+            "✅ Вы добавлены в список админов!\nТеперь Вам будут приходить уведомления о записях. Команды: /table (ссылка на таблицу) и /clear_onetime."
         )
 
     markup = types.InlineKeyboardMarkup()
@@ -515,7 +532,7 @@ def start(message):
         types.InlineKeyboardButton("🇷🇺 Русский", callback_data="lang:ru"),
         types.InlineKeyboardButton("🇬🇧 English", callback_data="lang:en")
     )
-    bot.send_message(message.chat.id, "Выбери язык / Choose your language:", reply_markup=markup)
+    bot.send_message(message.chat.id, "Выберите язык / Choose your language:", reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("lang:"))
@@ -527,13 +544,13 @@ def handle_lang(call):
 
 
 # === КОМАНДЫ ДЛЯ АДМИНОВ ===
-@bot.message_handler(commands=["excel"])
-def send_excel(message):
+@bot.message_handler(commands=["table", "excel"])
+def send_table_link(message):
     if not is_admin(message.from_user.id):
         return
-    export_to_excel()
-    with open(EXCEL_FILE, "rb") as f:
-        bot.send_document(message.chat.id, f, caption="📊 Актуальная таблица записей")
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Открыть живую таблицу 📊", url=GOOGLE_SHEET_URL))
+    bot.send_message(message.chat.id, "Вот ссылка на общую таблицу записей:", reply_markup=markup)
 
 
 @bot.message_handler(commands=["clear_onetime"])
@@ -545,7 +562,7 @@ def clear_onetime(message):
     cur.execute("DELETE FROM bookings WHERE expires_at IS NOT NULL OR booking_type LIKE 'Одноразовая%'")
     conn.commit()
     conn.close()
-    notify_admins_with_excel("🧹 Все одноразовые записи очищены вручную.")
+    notify_admins("🧹 Все одноразовые записи очищены из бота вручную (в таблице история сохранена).")
 
 
 # === КНОПКИ ГЛАВНОГО МЕНЮ ===
@@ -640,13 +657,13 @@ def show_my_bookings(message):
     bot.send_message(message.chat.id, TEXTS[lang]["my_bookings"], reply_markup=markup)
 
 
-# === ЗАПИСЬ И ОТМЕНА ===
-def notify_admins_with_excel(caption):
-    export_to_excel()
+# === УВЕДОМЛЕНИЯ АДМИНАМ (БЕЗ ФАЙЛОВ, ПРОСТО С КНОПКОЙ) ===
+def notify_admins(text):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Открыть таблицу 📊", url=GOOGLE_SHEET_URL))
     for adm_id in get_all_admins():
         try:
-            with open(EXCEL_FILE, "rb") as f:
-                bot.send_document(adm_id, f, caption=caption)
+            bot.send_message(adm_id, text, reply_markup=markup)
         except Exception:
             pass
 
@@ -689,7 +706,7 @@ def handle_booking_type(call):
 
     bot.answer_callback_query(call.id)
     ask_text = (
-        "Напиши, пожалуйста, своё имя (и имя ребёнка, если записываешь его):"
+        "Напишите, пожалуйста, Ваше имя (и имя ребёнка, если записываете его):"
         if lang == "ru"
         else "Please enter your name (and your child's name if applicable):"
     )
@@ -702,7 +719,7 @@ def process_booking_name(message, slot_id, btype_key):
     t = TEXTS[lang]
 
     if not message.text:
-        retry_text = "Пожалуйста, напиши имя текстом:" if lang == "ru" else "Please send your name as text:"
+        retry_text = "Пожалуйста, напишите имя текстом:" if lang == "ru" else "Please send your name as text:"
         msg = bot.send_message(message.chat.id, retry_text)
         bot.register_next_step_handler(msg, process_booking_name, slot_id, btype_key)
         return
@@ -732,7 +749,7 @@ def process_booking_name(message, slot_id, btype_key):
             parse_mode="HTML",
             reply_markup=main_menu(lang)
         )
-        notify_admins_with_excel(
+        notify_admins(
             f"🔔 Новая запись!\nКлиент: {client_info}\nГруппа: {SCHEDULE[slot_id]['ru']}\nТип: {btype_ru}"
         )
     else:
@@ -755,7 +772,7 @@ def handle_cancel(call):
     bot.answer_callback_query(call.id, TEXTS[lang]["canceled"])
     bot.edit_message_text(TEXTS[lang]["canceled"], call.message.chat.id, call.message.message_id)
 
-    notify_admins_with_excel(
+    notify_admins(
         f"❌ Отмена записи!\nКлиент: {client_info}\nГруппа: {SCHEDULE[slot_id]['ru']}"
     )
 
