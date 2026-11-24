@@ -6,7 +6,8 @@ from telebot import types
 from openpyxl import Workbook
 
 # === НАСТРОЙКИ ===
-TOKEN = "9247692338:AAF8PCoOz3hZDnV0mun0c9sRuyALm6HrILg"
+TOKEN = os.getenv("BOT_TOKEN")
+
 ADMIN_ID = 1213775571  # ID мамы для уведомлений и команды /excel
 ADMIN_SECRET = "secret_admin_777"  # Пароль для ссылки-приглашения в админы
 SUPPORT_GROUP_URL = "https://t.me/+wJqlXr8Q4TdmNzA0"
