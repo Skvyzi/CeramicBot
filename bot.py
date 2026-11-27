@@ -15,7 +15,7 @@ SUPPORT_GROUP_URL = "https://t.me/+wJqlXr8Q4TdmNzA0"
 LOCATION_URL = "https://maps.app.goo.gl/3marsJJvmUzWL3qy8"
 INSTAGRAM_URL = "https://www.instagram.com/artelceramics/"
 LOCATION_PHOTO = "location.jpg"  # Имя файла с фото в папке с ботом
-MAX_PEOPLE = 8
+MAX_PEOPLE = 6
 
 # Настройки Google Таблицы
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/100Ss455op1E0W00_mAFLn3VItBoIJ7GEcyGJEdHuKk8/edit?usp=sharing"
@@ -154,7 +154,7 @@ TEXTS = {
         ),
 
         "schedule_header": (
-            "<b>Расписание групп (до 8 человек):</b>\n\n"
+            "<b>Расписание групп (до 6 человек):</b>\n\n"
             "Взрослые могут ходить в детские группы, а вот наоборот нельзя — дети во взрослую группу не ходят 😊\n\n"
             "Нажмите на нужное время, чтобы записаться:"
         ),
@@ -279,7 +279,7 @@ TEXTS = {
         ),
 
         "schedule_header": (
-            "<b>Regular Class Schedule (up to 8 people):</b>\n\n"
+            "<b>Regular Class Schedule (up to 6 people):</b>\n\n"
             "Adults are welcome to join the children's groups, but children cannot attend the adult group 😊\n\n"
             "Tap a time slot to book:"
         ),
